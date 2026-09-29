@@ -19,6 +19,9 @@ i = 0
 
 prefix = sys.argv[1]
 
+if prefix[-1] != '/' :
+    prefix = prefix + '/'
+
 path = Path(prefix)
 j = sum(1 for x in path.rglob('*') if x.is_file())
 
@@ -37,15 +40,20 @@ def get_dir_coords(prefix, directory) :
             continue
         else :
             _, ext = os.path.splitext(prefix+directory+filename)
-            if ext != ".mp4" :
-                image = Image(prefix+directory+filename)
-                if hasattr(image, 'gps_latitude') :
-                    decimal_latitude = str(dms_to_dd(image.gps_latitude, image.gps_latitude_ref))
-                    decimal_longitude = str(dms_to_dd(image.gps_longitude, image.gps_longitude_ref))
-                    lats= np.append(lats, decimal_latitude)
-                    longs = np.append(longs, decimal_longitude)
-                    i += 1
-            it += 1
+            im = True
+            try :
+                image = Image(prefix+dir+filename)
+            except KeyboardInterrupt :
+                return
+            except:
+                im = False
+            if im and image.has_exif and hasattr(image, 'gps_latitude') :
+                decimal_latitude = str(dms_to_dd(image.gps_latitude, image.gps_latitude_ref))
+                decimal_longitude = str(dms_to_dd(image.gps_longitude, image.gps_longitude_ref))
+                lats= np.append(lats, decimal_latitude)
+                longs = np.append(longs, decimal_longitude)
+                i += 1
+        it += 1
     print(f'{prefix + directory} done; {it}/{j} files treated')
     return (lats, longs)
 

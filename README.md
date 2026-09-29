@@ -8,15 +8,20 @@ Required libraries :
 - exif
 - plotly
 - geopy
+- ffmpeg-python (!NOT python-ffmpeg!)
 
 Use :
 python3 map.py [DIR] to create a html file of a map of the world with the locations found in the metadata of all photos in [DIR] and its subfolders using plotly.
-python3 renamer.py [DIR] to change the names of all image files in [DIR] and all its subdirectories to the yyyy-mm-dd HH:MM:SS model, with the addition of Country, Region, City wherever applicable.
-python3 renamer_no_loc.py [DIR] to change the names of all image files in [DIR] and all its subdirectories to the yyyy-mm-dd HH:MM:SS model without querying for the location
 
-TO BE ADDED :
+python3 renamer.py [DIR] to change the names of all image and video files in [DIR] and all its subdirectories to the yyyy-mm-dd HH:MM:SS model, with the addition of Country, Region, City wherever applicable.
 
-- video format support (mp4, mov, wav)?
-- add pandas, and add a program to create a databases of all places visited (also tied to renamer_no_loc, to avoid making the same searches twice)
+python3 renamer_no_loc.py [DIR] to change the names of all image and video files in [DIR] and all its subdirectories to the yyyy-mm-dd HH:MM:SS model without querying for the location
+python3 metadata_treater.py [DIR] to get 
+
+python3 metadata_treater.py [DIR] to get the cities of all photos with location metadata in [DIR] and all its subdirectories, and return them into a [DIR].csv file
+
+# TO BE ADDED :
+
+- figure out if ffmpeg can have location metadata
 - find a way to deal with edited files and others that do not feature EXIF data
 - potentially compile for ease of use?

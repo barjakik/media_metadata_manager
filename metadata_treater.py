@@ -1,5 +1,3 @@
-from dask.typing import Key
-from multiprocessing.sharedctypes import Value
 import os as os
 import sys
 from exif import Image
@@ -7,17 +5,21 @@ from datetime import datetime
 from geopy.geocoders import Nominatim
 import time
 from pathlib import Path
-import ffmpeg
-from PIL import Image as Img
+import pandas as pd
+
+i = 0
+
+tot = 0
 
 prefix = sys.argv[1]
+
+data = {}
 
 if prefix[-1] != '/' :
     prefix = prefix + '/'
 
 path = Path(prefix)
-j = sum(1 for x in path.rglob('*') if x.is_file())  # Only files, recursive
-i = 0
+j = sum(1 for x in path.rglob('*') if x.is_file())
 
 def dms_to_dd(gps_coords, gps_coords_ref):
     d, m, s =  gps_coords
@@ -27,38 +29,28 @@ def dms_to_dd(gps_coords, gps_coords_ref):
     elif gps_coords_ref.upper() in ('N', 'E'):
         return dd
 
-def rename_directory_contents(prefix, dir):
+def treat_metadata(prefix, dir):
     global i
     global j
+    global tot
+    global data
     for file in os.listdir(prefix+dir):
         filename = os.fsdecode(file)
         if(os.path.isdir(prefix+dir+filename)) :
-            rename_directory_contents(prefix + dir, filename + "/")
+            treat_metadata(prefix + dir, filename + "/")
         else :
+            tot += 1
             _, ext = os.path.splitext(prefix+dir+filename)
-            i+= 1
-            im = True
-            try :
+            if ext != ".mp4" :
                 image = Image(prefix+dir+filename)
-            except KeyboardInterrupt :
-                return
-            except:
-                im = False
-            if im and image.has_exif :
-                dt = datetime.strptime(image.datetime, "%Y:%m:%d %H:%M:%S")
-                foldername = str(dt.year) + f'{dt.month:02d}'
-                if dir == foldername + "/" :
-                    path = prefix+dir
-                else:
-                    if not os.path.isdir(prefix+dir+foldername) :
-                        os.mkdir(prefix+dir+foldername)
-                    path = prefix+dir+foldername+"/"
-                if hasattr(image, 'gps_latitude') :
+                if image.has_exif and hasattr(image, 'gps_latitude'):
+                    dt = datetime.strptime(image.datetime, "%Y:%m:%d %H:%M:%S")
                     decimal_latitude = str(dms_to_dd(image.gps_latitude, image.gps_latitude_ref))
                     decimal_longitude = str(dms_to_dd(image.gps_longitude, image.gps_longitude_ref))
                     location = geolocator.reverse(str(dms_to_dd(image.gps_latitude, image.gps_latitude_ref))+","+str(dms_to_dd(image.gps_longitude, image.gps_longitude_ref)), language='en')
                     time.sleep(20) # To comply with Nominatim usage policy
                     if(location != None) :
+                        i+= 1
                         if 'country' in location.raw['address'] :
                             country = location.raw['address'].get('country', '')
                         else :
@@ -89,26 +81,22 @@ def rename_directory_contents(prefix, dir):
                                     state = location.raw['address'].get('country', '')
                                 else :
                                     state = 'N/A'
-                        os.rename(prefix+dir+filename, path+dt.strftime("%Y-%m-%d %H:%M:%S") + " - " + country + ", " + state + ", " + city + ext)
-                    else :
-                        os.rename(prefix+dir+filename, path+dt.strftime("%Y-%m-%d %H:%M:%S") + ext)
-                else :
-                    os.rename(prefix+dir+filename, path+dt.strftime("%Y-%m-%d %H:%M:%S") + ext)
-            else :
-                dt  = datetime.strptime(ffmpeg.probe(prefix+dir+filename)["streams"][1]['tags']['creation_time'][:19],\
-                    "%Y-%m-%dT%H:%M:%S")
-                foldername = str(dt.year) + f'{dt.month:02d}'
-                if dir == foldername + "/" :
-                    path = prefix+dir
-                else:
-                    if not os.path.isdir(prefix+dir+foldername) :
-                        os.mkdir(prefix+dir+foldername)
-                    path = prefix+dir+foldername+"/"
-                os.rename(prefix+dir+filename, path+dt.strftime("%Y-%m-%d %H:%M:%S") + ext)
-    print(f'{prefix + dir} done; {i}/{j} files treated')
+                        if city in data:
+                            if data[city]["firstvis"] > dt :
+                                data[city]["firstvis"] = dt
+                            if data[city]["lastvis"] < dt :
+                                data[city]["lastvis"] = dt
+                        else :
+                            data[city] = {"country": country, "state": state, "firstvis": dt, "lastvis": dt}
+                        
+    print(f'{prefix + dir} done; {tot}/{j} files treated')
 
 geolocator = Nominatim(user_agent="media_metadata_manager")
 
-rename_directory_contents("", prefix+"/")
+treat_metadata("", prefix)
 
-print(f'{i} photo names changed!\n')
+df = pd.DataFrame.from_dict(data, orient='index', columns=["city", "country", "state", "firstvis", "lastvis"])
+
+df.to_csv(f'{prefix}.csv')
+
+print(f'{i} photos used!\n')

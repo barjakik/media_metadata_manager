@@ -3,10 +3,14 @@ import sys
 from exif import Image
 from datetime import datetime
 from pathlib import Path
+import ffmpeg
 
 i = 0
 
 prefix = sys.argv[1]
+
+if prefix[-1] != '/' :
+    prefix = prefix + '/'
 
 path = Path(prefix)
 j = sum(1 for x in path.rglob('*') if x.is_file())
@@ -29,18 +33,34 @@ def rename_directory_contents(prefix, dir):
         else :
             _, ext = os.path.splitext(prefix+dir+filename)
             i+= 1
-            if ext != ".mp4" :
+            im = True
+            try :
                 image = Image(prefix+dir+filename)
-                if image.has_exif :
-                    dt = datetime.strptime(image.datetime, "%Y:%m:%d %H:%M:%S")
-                    foldername = str(dt.year) + f'{dt.month:02d}'
-                    if dir == foldername + "/" :
-                        path = prefix+dir
-                    else:
-                        if not os.path.isdir(prefix+dir+foldername) :
-                            os.mkdir(prefix+dir+foldername)
-                        path = prefix+dir+foldername+"/"
-                    os.rename(prefix+dir+filename, path+dt.strftime("%Y-%m-%d %H:%M:%S") + ext)
+            except KeyboardInterrupt :
+                return
+            except:
+                im = False
+            if im and image.has_exif :
+                dt = datetime.strptime(image.datetime, "%Y:%m:%d %H:%M:%S")
+                foldername = str(dt.year) + f'{dt.month:02d}'
+                if dir == foldername + "/" :
+                    path = prefix+dir
+                else:
+                    if not os.path.isdir(prefix+dir+foldername) :
+                        os.mkdir(prefix+dir+foldername)
+                    path = prefix+dir+foldername+"/"
+                os.rename(prefix+dir+filename, path+dt.strftime("%Y-%m-%d %H:%M:%S") + ext)
+            else :
+                dt  = datetime.strptime(ffmpeg.probe(prefix+dir+filename)["streams"][1]['tags']['creation_time'][:19],\
+                    "%Y-%m-%dT%H:%M:%S")
+                foldername = str(dt.year) + f'{dt.month:02d}'
+                if dir == foldername + "/" :
+                    path = prefix+dir
+                else:
+                    if not os.path.isdir(prefix+dir+foldername) :
+                        os.mkdir(prefix+dir+foldername)
+                    path = prefix+dir+foldername+"/"
+                os.rename(prefix+dir+filename, path+dt.strftime("%Y-%m-%d %H:%M:%S") + ext)
     print(f'{prefix + dir} done; {i}/{j} files treated')
 
 
