@@ -42,7 +42,7 @@ def get_dir_coords(prefix, directory) :
             _, ext = os.path.splitext(prefix+directory+filename)
             im = True
             try :
-                image = Image(prefix+dir+filename)
+                image = Image(prefix+directory+filename)
             except KeyboardInterrupt :
                 return
             except:
